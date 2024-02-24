@@ -1,0 +1,92 @@
+html,
+body {
+  height: 100%;
+
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  background-color: black;
+
+}
+
+
+html {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+
+
+
+
+
+.splitter {
+  flex: 0 0 auto;
+  width: 18px;
+  background: url(https://raw.githubusercontent.com/RickStrahl/jquery-resizable/master/assets/vsizegrip.png) center center no-repeat #535353;
+  min-height: 200px;
+  cursor: col-resize;
+}
+
+
+
+
+
+.panel-container-vertical {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 20px);
+  ;
+
+
+  overflow: hidden;
+}
+
+.panel-top {
+  flex: 0 0 auto;
+  /* only manually resize */
+  max-height: 85%;
+  height: 50%;
+  width: 100%;
+}
+
+.splitter-horizontal {
+  flex: 0 0 auto;
+  height: 18px;
+  background: url(https://raw.githubusercontent.com/RickStrahl/jquery-resizable/master/assets/hsizegrip.png) center center no-repeat #535353;
+  cursor: row-resize;
+  background-color: black;
+}
+
+.panel-bottom {
+  flex: 1 1 auto;
+  /* resizable */
+  min-height: 200px;
+
+}
+
+#bar {
+  background-color: #007acc;
+  height: 25px;
+}
+
+#terminal-container {
+  /*position: absolute;
+  top: 50%;*/
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+
+
+
+.resizable {
+
+  min-height: 3em;
+  resize: vertical;
+  overflow: auto;
+}
