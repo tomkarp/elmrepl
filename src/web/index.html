@@ -366,6 +366,7 @@
 
 
             var editor = monaco.editor.create(document.getElementById('container'), {
+                fontSize: 18,
                 value: value,
                 language: 'Elm',
                 automaticLayout: true,
@@ -506,6 +507,8 @@
                 terminalContainer.removeChild(terminalContainer.children[0]);
             }
             term = new Terminal({
+                fontSize: 18,
+                fontFamily: "Menlo, Monaco, monospace",
                 cursorBlink: false
             });
 
