@@ -176,7 +176,7 @@ const createTerminal = () => {
         cursorBlink: false
     });
 
-    socketURL = (location.protocol === 'https:') ? 'wss://' : 'ws://' + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/';
+    socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/';
 
     term.open(terminalContainer);
 
