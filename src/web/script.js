@@ -147,6 +147,7 @@ require(['vs/editor/editor.main'], function () {
 
     // init editor
     var editor = monaco.editor.create(document.getElementById('container'), {
+        fontSize: 18,
         value: getEditorValue(),
         language: 'Elm',
         automaticLayout: true,
@@ -173,6 +174,8 @@ const terminalContainer = document.getElementById('terminal-container');
 
 const createTerminal = () => {
     term = new Terminal({
+        fontSize: 18,
+        fontFamily: "Menlo, Monaco, monospace",
         cursorBlink: false
     });
 
