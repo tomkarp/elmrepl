@@ -121,7 +121,7 @@ function getEditorValue() {
         });
         value = "decompressing ..."
     } else {
-        value = 'module Main exposing (..)\nnachricht = "Hello World"'
+        value = 'module Main exposing (..)\n\nmessage = "Hello World"'
     }
     return value;
 }
