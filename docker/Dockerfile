@@ -11,4 +11,5 @@ RUN apk add --no-cache nodejs
 # hack to download elm package list and init
 RUN (sleep 5 && echo '"Hello World"') | elm repl
 RUN echo "Y" | elm init
+RUN echo "Y" | elm install elm/random
 CMD ["/bin/elm", "repl"]
