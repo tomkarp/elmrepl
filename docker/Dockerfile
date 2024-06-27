@@ -12,4 +12,5 @@ RUN apk add --no-cache nodejs
 RUN (sleep 5 && echo '"Hello World"') | elm repl
 RUN echo "Y" | elm init
 RUN echo "Y" | elm install elm/random
+RUN echo "Y" | elm install elm/json
 CMD ["/bin/elm", "repl"]
