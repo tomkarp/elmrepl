@@ -13,4 +13,5 @@ RUN (sleep 5 && echo '"Hello World"') | elm repl
 RUN echo "Y" | elm init
 RUN echo "Y" | elm install elm/random
 RUN echo "Y" | elm install elm/json
+RUN echo "Y" | elm install elm/svg
 CMD ["/bin/elm", "repl"]
