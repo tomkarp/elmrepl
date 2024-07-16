@@ -83,3 +83,6 @@ In both cases you have to encode text for example in an online URL encoder.
 Here, you can find an example:
 
 https://elmrepl.de?code=%0Asum%20n%20%3D%0A%20%20%20%20if%20n%20%3D%3D%201%20then%201%0A%20%20%20%20else%20n%20%2B%20sum%20%28n%20-%201%29&repl=sum%2010
+
+## Created by
+https://github.com/leon-th
