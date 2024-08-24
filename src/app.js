@@ -122,6 +122,9 @@ app.ws('/ws/:repl_name', (ws, req) => {
 
     ws.on('close', () => {
         try {
+            if (!terminals[repl_name]) {
+                return;
+            }
             let stop_container = pty.spawn('docker', ["rm", "-f", repl_name]);
             stop_container.on('close', code => {
                 if (DEBUG) console.log("Stopped container "+repl_name);
