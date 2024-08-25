@@ -134,13 +134,24 @@ require(['vs/editor/editor.main'], function () {
     monaco.languages.setMonarchTokensProvider('Elm', window.elm_monarch);
 
     // monaco-editor theme & colors
-    monaco.editor.defineTheme('dark-plus', {
+    monaco.editor.defineTheme('dark', {
         base: 'vs-dark',
         inherit: true,
         rules: [
             { token: 'keyword', foreground: '#C586C0' },
             { token: 'type', foreground: '#569CD6' },
             { token: 'function.name', foreground: '#DCDCAA' },
+        ],
+        colors: {},
+    });
+
+    monaco.editor.defineTheme('light', {
+        base: 'vs',
+        inherit: true,
+        rules: [
+            { token: 'keyword', foreground: '#037ABA' },
+            { token: 'type', foreground: '#BE5A09' },
+            { token: 'function.name', foreground: '#044B86' },
         ],
         colors: {},
     });
@@ -152,7 +163,7 @@ require(['vs/editor/editor.main'], function () {
         language: 'Elm',
         automaticLayout: true,
         scrollBeyondLastLine: false,
-        theme: "dark-plus",
+        theme: localStorage.getItem("darkmode-editor") === 'false' ? "light" : "dark",
         automaticLayout: true,
     });
 
@@ -166,6 +177,30 @@ require(['vs/editor/editor.main'], function () {
 
 // TERMINAL
 
+terminaLightTheme = {
+    "foreground": "#383A42",
+    "background": "#FAFAFA",
+    "cursorColor": "#4F525D",
+    "selectionBackground": "#FFFFFF",
+    "black": "#383A42",
+    "red": "#E45649",
+    "green": "#50A14F",
+    "yellow": "#C18301",
+    "blue": "#0184BC",
+    "purple": "#A626A4",
+    "cyan": "#0997B3",
+    "white": "#FAFAFA",
+    "brightBlack": "#4F525D",
+    "brightRed": "#DF6C75",
+    "brightGreen": "#98C379",
+    "brightYellow": "#E4C07A",
+    "brightBlue": "#61AFEF",
+    "brightPurple": "#C577DD",
+    "brightCyan": "#56B5C1",
+    "brightWhite": "#FFFFFF",
+    "cursor": "#4F525D"
+}
+
 let term,
     socketURL,
     socket;
@@ -178,7 +213,7 @@ const createTerminal = () => {
         fontFamily: "Menlo, Monaco, monospace",
         cursorBlink: false
     });
-
+    term.options.theme = localStorage.getItem("darkmode-terminal") === 'false' ? terminaLightTheme : {};
     socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/';
 
     term.open(terminalContainer);
@@ -260,3 +295,45 @@ if (repl) {
         socket.send("import Main exposing (..)\n")
     }, 2000);
 }
+
+
+var settingsModal = document.getElementById("settingsModal");
+
+// When the user clicks on the settings button, open the modal
+document.getElementById("settings").onclick = function () {
+    settingsModal.style.display = "block";
+}
+
+// When the user clicks on the close button, close the modal
+document.getElementById("close").onclick = function () {
+    settingsModal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function (event) {
+    if (event.target == settingsModal) {
+        settingsModal.style.display = "none";
+    }
+}
+
+document.querySelector('#darkmode-editor').checked = (localStorage.getItem('darkmode-editor') === 'true')
+document.getElementById("darkmode-editor").addEventListener("change", function () {
+    if (this.checked) {
+        window.theEditor.updateOptions({ theme: "dark" });
+        localStorage.setItem("darkmode-editor", true);
+    } else {
+        window.theEditor.updateOptions({ theme: "light" });
+        localStorage.setItem("darkmode-editor", false);
+    }
+});
+
+document.querySelector('#darkmode-terminal').checked = (localStorage.getItem('darkmode-terminal') === 'true')
+document.getElementById("darkmode-terminal").addEventListener("change", function () {
+    if (this.checked) {
+        term.options.theme = {};
+        localStorage.setItem("darkmode-terminal", true);
+    } else {
+        term.options.theme = terminaLightTheme;
+        localStorage.setItem("darkmode-terminal", false);
+    }
+});
