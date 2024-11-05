@@ -163,7 +163,7 @@ require(['vs/editor/editor.main'], function () {
         language: 'Elm',
         automaticLayout: true,
         scrollBeyondLastLine: false,
-        theme: localStorage.getItem("darkmode-editor") === 'false' ? "light" : "dark",
+        theme: localStorage.getItem("darkmode-editor") === 'true' ? "dark" : "light",
         automaticLayout: true,
     });
 
@@ -213,7 +213,7 @@ const createTerminal = () => {
         fontFamily: "Menlo, Monaco, monospace",
         cursorBlink: false
     });
-    term.options.theme = localStorage.getItem("darkmode-terminal") === 'false' ? terminaLightTheme : {};
+    term.options.theme = localStorage.getItem("darkmode-terminal") === 'true' ? {} : terminaLightTheme;
     socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/';
 
     term.open(terminalContainer);
@@ -268,6 +268,10 @@ const createTerminal = () => {
     });;
 }
 
+if (localStorage.getItem("darkmode-terminal") === null) {
+    localStorage.setItem("darkmode-terminal", true);
+}
+
 createTerminal();
 
 new ResizeObserver(function () { fit.fit(); }).observe(document.getElementsByClassName("panel-top")[0])
@@ -316,6 +320,9 @@ window.onclick = function (event) {
     }
 }
 
+if (localStorage.getItem("darkmode-editor") === null) {
+    localStorage.setItem("darkmode-editor", true);
+}
 document.querySelector('#darkmode-editor').checked = (localStorage.getItem('darkmode-editor') === 'true')
 document.getElementById("darkmode-editor").addEventListener("change", function () {
     if (this.checked) {
