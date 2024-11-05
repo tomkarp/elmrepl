@@ -320,6 +320,9 @@ window.onclick = function (event) {
     }
 }
 
+if (localStorage.getItem("darkmode-editor") === null) {
+    localStorage.setItem("darkmode-editor", true);
+}
 document.querySelector('#darkmode-editor').checked = (localStorage.getItem('darkmode-editor') === 'true')
 document.getElementById("darkmode-editor").addEventListener("change", function () {
     if (this.checked) {
