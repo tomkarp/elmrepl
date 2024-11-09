@@ -344,3 +344,14 @@ document.getElementById("darkmode-terminal").addEventListener("change", function
         localStorage.setItem("darkmode-terminal", false);
     }
 });
+
+// keep connection alive only in safari
+function isSafari() {
+    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+if (isSafari())
+    setInterval(function () {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send("");
+        }
+    }, 30000); // Alle 30 Sekunden
