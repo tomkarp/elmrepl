@@ -7,7 +7,8 @@ RUN chmod +x /bin/elm
 FROM alpine
 COPY --from=0 /bin/elm /bin/elm
 RUN chmod +x /bin/elm
-RUN apk add --no-cache nodejs
+RUN apk add --no-cache nodejs npm
+RUN npm install -g elm-format@0.8.7
 # hack to download elm package list and init
 RUN (sleep 5 && echo '"Hello World"') | elm repl
 RUN echo "Y" | elm init

@@ -3,6 +3,7 @@ const app = express()
 const pty = require('node-pty');
 const expressWs = require('express-ws')(app);
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 let DEBUG = true;
@@ -77,6 +78,38 @@ app.post('/save/:repl_name', (req,res) => {
     res.end();
     if (DEBUG) console.log("Saved file"+req.params.repl_name);
 })
+
+app.post('/format/:repl_name', (req, res) => {
+    const replName = req.params.repl_name;
+
+    if (!terminals[replName]) {
+        res.status(404).end();
+        if (DEBUG) console.log('formatting: terminal not existing ' + replName);
+        return;
+    }
+
+    const format = spawn('docker', ['exec', replName, 'elm-format', '/src/Main.elm', '--yes']);
+    let stderr = '';
+
+    format.stderr.on('data', (data) => {
+        stderr += data;
+    });
+
+    format.on('close', (code) => {
+        if (code !== 0) {
+            if (DEBUG) console.log('elm-format failed for ' + replName + ': ' + stderr);
+            res.status(500).send(stderr || 'elm-format failed');
+            return;
+        }
+        try {
+            const formatted = fs.readFileSync('/tmp/' + replName, 'utf8');
+            res.type('text/plain').send(formatted);
+        } catch (e) {
+            if (DEBUG) console.log('reading formatted file failed for ' + replName + ': ' + e);
+            res.status(500).send('unable to read formatted file');
+        }
+    });
+});
 
 
 app.listen(port, () => {

@@ -100,6 +100,27 @@ function save() {
     fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
 }
 
+async function formatCode() {
+    if (!window.repl_name) {
+        alert('REPL not ready yet');
+        return;
+    }
+
+    try {
+        await fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
+        const res = await fetch('/format/' + window.repl_name, { method: 'POST' });
+        if (!res.ok) {
+            const msg = await res.text();
+            alert('Formatting failed: ' + (msg || 'unknown error'));
+            return;
+        }
+        const formatted = await res.text();
+        window.theEditor.setValue(formatted);
+    } catch (e) {
+        alert('Formatting failed: ' + e);
+    }
+}
+
 // warn before reload/closing
 window.onbeforeunload = function () {
     return 'saved your changes?';
