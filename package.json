@@ -15,6 +15,7 @@
     "jquery": "^3.7.1",
     "jquery-resizable-dom": "^0.35.0",
     "monaco-editor": "^0.45.0",
+    "monaco-vim": "^0.3.5",
     "node-pty": "^1.0.0",
     "uuid": "^9.0.1",
     "xterm": "^5.3.0",

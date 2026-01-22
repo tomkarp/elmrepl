@@ -17,6 +17,7 @@ app.use('/static/xterm/css', express.static(__dirname + '/../node_modules/xterm/
 app.use('/static/xterm-addon-fit', express.static(__dirname + '/../node_modules/xterm-addon-fit/lib'));
 app.use('/static/xterm-addon-attach', express.static(__dirname + '/../node_modules/xterm-addon-attach/lib'));
 app.use('/static/monaco-editor', express.static(__dirname+'/../node_modules/monaco-editor'))
+app.use('/static/monaco-vim', express.static(__dirname+'/../node_modules/monaco-vim'))
 app.use('/static/jquery-resizable-dom', express.static(__dirname+'/../node_modules/jquery-resizable-dom/dist'))
 app.use('/static/jquery-resizable-dom/assets', express.static(__dirname+'/../node_modules/jquery-resizable-dom/assets'))
 app.use('/static/jquery', express.static(__dirname+'/../node_modules/jquery/dist'))

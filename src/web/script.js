@@ -139,6 +139,17 @@ window.addEventListener('keydown', (e) => {
         e.preventDefault();
         formatCode();
     }
+    // Keyboard shortcut for toggling Vim mode (Cmd+Shift+V on Mac, Ctrl+Shift+V on others)
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyV') {
+        e.preventDefault();
+        const vimCheckbox = document.getElementById('vim-mode');
+        vimCheckbox.checked = !vimCheckbox.checked;
+        if (vimCheckbox.checked) {
+            activateVimMode();
+        } else {
+            deactivateVimMode();
+        }
+    }
 });
 
 // warn before reload/closing
@@ -170,6 +181,8 @@ function getEditorValue() {
 require.config({ paths: { 'vs': '/static/monaco-editor/min/vs' } });
 
 require(['vs/editor/editor.main'], function () {
+    // Monaco is already globally available as window.monaco after loading
+    
     monaco.languages.register({ id: 'Elm' });
 
     monaco.languages.setMonarchTokensProvider('Elm', window.elm_monarch);
@@ -214,7 +227,109 @@ require(['vs/editor/editor.main'], function () {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S, save);
 
     window.theEditor = editor;
+
+    // Setup Vim mode toggle after editor is ready
+    setupVimModeToggle();
+
+    // Initialize Vim mode if enabled in localStorage
+    if (localStorage.getItem("vim-mode") === 'true') {
+        require.config({ paths: { 'monaco-vim': '/static/monaco-vim/dist/monaco-vim' } });
+        require(['monaco-vim'], function (MonacoVim) {
+            try {
+                const statusBar = document.createElement('div');
+                statusBar.id = 'vim-status';
+                statusBar.style.cssText = 'position: fixed; bottom: 30px; left: 0; right: 0; padding: 5px 10px; background: #007acc; color: white; font-family: monospace; font-size: 12px; z-index: 1000;';
+                document.body.appendChild(statusBar);
+                
+                // Adjust panel-bottom to make room for Vim status bar
+                document.querySelector('.panel-bottom').style.marginBottom = '32px';
+                
+                // Trigger terminal resize to update layout
+                if (window.fit) {
+                    setTimeout(() => window.fit.fit(), 100);
+                }
+                
+                window.vimMode = MonacoVim.initVimMode(editor, statusBar);
+                window.MonacoVim = MonacoVim;
+                console.log('Vim mode initialized on startup');
+            } catch (e) {
+                console.error('Failed to initialize vim mode:', e);
+            }
+        });
+    }
 });
+
+// Setup Vim mode toggle function
+function setupVimModeToggle() {
+    if (localStorage.getItem("vim-mode") === null) {
+        localStorage.setItem("vim-mode", false);
+    }
+    document.querySelector('#vim-mode').checked = (localStorage.getItem('vim-mode') === 'true')
+    document.getElementById("vim-mode").addEventListener("change", function () {
+        if (this.checked) {
+            activateVimMode();
+        } else {
+            deactivateVimMode();
+        }
+    });
+}
+
+function activateVimMode() {
+    require.config({ paths: { 'monaco-vim': '/static/monaco-vim/dist/monaco-vim' } });
+    require(['monaco-vim'], function (MonacoVim) {
+        try {
+            if (!document.getElementById('vim-status')) {
+                const statusBar = document.createElement('div');
+                statusBar.id = 'vim-status';
+                statusBar.style.cssText = 'position: fixed; bottom: 30px; left: 0; right: 0; padding: 5px 10px; background: #007acc; color: white; font-family: monospace; font-size: 12px; z-index: 1000;';
+                document.body.appendChild(statusBar);
+            }
+            // Adjust panel-bottom to make room for Vim status bar
+            document.querySelector('.panel-bottom').style.marginBottom = '32px';
+            
+            // Trigger terminal resize to update layout
+            if (window.fit) {
+                setTimeout(() => window.fit.fit(), 100);
+            }
+            
+            window.vimMode = MonacoVim.initVimMode(window.theEditor, document.getElementById('vim-status'));
+            window.MonacoVim = MonacoVim;
+            localStorage.setItem("vim-mode", true);
+            console.log('Vim mode enabled successfully', MonacoVim);
+        } catch (e) {
+            console.error('Failed to enable vim mode:', e);
+            alert('Vim mode activation failed: ' + e.message);
+            document.getElementById("vim-mode").checked = false;
+        }
+    }, function(err) {
+        console.error('Failed to load monaco-vim:', err);
+        alert('Failed to load Vim mode library');
+        document.getElementById("vim-mode").checked = false;
+    });
+}
+
+function deactivateVimMode() {
+    try {
+        if (window.vimMode) {
+            window.vimMode.dispose();
+        }
+        const statusBar = document.getElementById('vim-status');
+        if (statusBar) statusBar.remove();
+        
+        // Reset panel-bottom margin
+        document.querySelector('.panel-bottom').style.marginBottom = '0';
+        
+        // Trigger terminal resize to update layout
+        if (window.fit) {
+            setTimeout(() => window.fit.fit(), 100);
+        }
+        
+        localStorage.setItem("vim-mode", false);
+        console.log('Vim mode disabled');
+    } catch (e) {
+        console.error('Failed to disable vim mode:', e);
+    }
+}
 
 // TERMINAL
 
@@ -247,6 +362,9 @@ let term,
     socket;
 const fit = new FitAddon.FitAddon();
 const terminalContainer = document.getElementById('terminal-container');
+
+// Make fit available globally for Vim mode
+window.fit = fit;
 
 const createTerminal = () => {
     term = new Terminal({
