@@ -48,6 +48,32 @@ body {
   margin-bottom: 2px;
 }
 
+.format-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  margin-right: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: Consolas, "Courier New", monospace;
+  color: white;
+  transition: background 0.2s ease;
+}
+
+.format-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.format-btn svg {
+  height: 20px;
+  width: 20px;
+  margin: 0;
+  padding: 0;
+}
+
 .panel-container-vertical {
   display: flex;
   flex-direction: column;

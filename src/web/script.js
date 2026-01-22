@@ -106,20 +106,40 @@ async function formatCode() {
         return;
     }
 
+    const formatBtn = document.querySelector('.format-btn');
+    const originalContent = formatBtn.innerHTML;
+    formatBtn.innerHTML = '<span style="opacity: 0.7;">Formatting...</span>';
+    formatBtn.style.opacity = '0.6';
+
     try {
         await fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
         const res = await fetch('/format/' + window.repl_name, { method: 'POST' });
         if (!res.ok) {
             const msg = await res.text();
             alert('Formatting failed: ' + (msg || 'unknown error'));
+            formatBtn.innerHTML = originalContent;
+            formatBtn.style.opacity = '1';
             return;
         }
         const formatted = await res.text();
         window.theEditor.setValue(formatted);
+        
+        formatBtn.innerHTML = originalContent;
+        formatBtn.style.opacity = '1';
     } catch (e) {
         alert('Formatting failed: ' + e);
+        formatBtn.innerHTML = originalContent;
+        formatBtn.style.opacity = '1';
     }
 }
+
+// Keyboard shortcut for formatting (Cmd+Shift+F on Mac, Ctrl+Shift+F on others)
+window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyF') {
+        e.preventDefault();
+        formatCode();
+    }
+});
 
 // warn before reload/closing
 window.onbeforeunload = function () {
