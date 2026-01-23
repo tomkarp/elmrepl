@@ -5,7 +5,7 @@ If you want to learn or teach Elm, it is often useful to be able to enter and te
 
 ## Required software
 
-You need *npm* and *docker* on your server. If you want to expose your server to the world, a reverse proxy is useful. I use https://caddyserver.com, because it't configuration is very nice. All you need is a Caddyfile with e.g. this content:
+You need *npm* and *docker* on your server. If you want to expose your server to the world, a reverse proxy is useful. I use https://caddyserver.com, because its configuration is very nice. All you need is a Caddyfile with e.g. this content:
 
 ```
 :80 {
@@ -17,7 +17,7 @@ elmrepl.de {
 }
 ```
 
-If you want to have more control of your Nodejs-Sever, *pm2* is useful.
+If you want to have more control of your Node.js-Server, *pm2* is useful.
 
 ## Configuration
 
@@ -43,13 +43,13 @@ Clone the repo:
 git clone http://github.com/tomkarp/elmrepl
 ```
 
-change to `elmrepl/docker` and build the image:
+Change to `elmrepl/docker` and build the image:
 ```
 cd elmrepl/docker
 docker build -t elm-repl .
 ```
 
-change to `elmrepl`directory and install node modules:
+Change to `elmrepl` directory and install node modules:
 ```
 npm install
 ```
@@ -61,7 +61,7 @@ You can start the server with `node src/app.js`. If your server should start aft
 
 ### Delete old docker containers
 
-Sometimes docker containers where not removed properly. Also, it can be useful to limit the time for a connection. One way to do this, is to add this to crontab (removes docker containers older than 2 hours):
+Sometimes docker containers were not removed properly. Also, it can be useful to limit the time for a connection. One way to do this, is to add this to crontab (removes docker containers older than 2 hours):
 
 ```
 5 * * * * sudo docker ps --filter "ancestor=elm-repl" --format "{{.ID}} {{.Names}} {{.RunningFor}}" | awk '/hours/ && $3 > 2 { print $1 }' | while read -r container_id; do   docker kill "$container_id";  done
