@@ -23,6 +23,10 @@
 
         <div class="panel-bottom">
             <div id="terminal-container"></div>
+            <div id="connection-error" style="display: none; position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); padding: 12px 16px; text-align: center; border: 1px solid #ff6666; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+                <span style="color: #ffecec; margin-right: 12px; font-weight: 600;">Connection lost</span>
+                <button onclick="reconnect()" style="padding: 6px 16px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Reconnect</button>
+            </div>
         </div>
     </div>
 

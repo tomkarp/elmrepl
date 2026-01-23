@@ -97,6 +97,8 @@ $(".panel-bottom").resizable({
 
 // save code to server
 function save() {
+    if (!window.repl_name) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
     fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
 }
 
@@ -437,7 +439,54 @@ new ResizeObserver(function () { fit.fit(); }).observe(document.getElementsByCla
 
 const notify = () => {
     terminalContainer.style.opacity = 0.5;
-    term.write("\r\nConnection lost.\r\n")
+    term.write("\r\nConnection lost.\r\n");
+    document.getElementById('connection-error').style.display = 'block';
+}
+
+// reconnect to terminal (creates a fresh container and reuses current editor code)
+const reconnect = () => {
+    const code = window.theEditor ? window.theEditor.getValue() : '';
+
+    document.getElementById('connection-error').style.display = 'none';
+    terminalContainer.style.opacity = 1;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+    }
+
+    term.clear();
+
+    const cols = term ? term.cols : 80;
+    const rows = term ? term.rows : 24;
+
+    fetch('/terminals?cols=' + cols + '&rows=' + rows, { method: 'POST' })
+        .then((res) => {
+            if (!res.ok) {
+                notify();
+                return null;
+            }
+            return res.text();
+        })
+        .then((repl_name) => {
+            if (!repl_name) return;
+
+            window.repl_name = repl_name;
+
+            socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/' + repl_name;
+            socket = new WebSocket(socketURL);
+            socket.onopen = () => {
+                runRealTerminal();
+                fetch('/save/' + repl_name + '?data=' + encodeURIComponent(code), { method: 'POST' });
+                setTimeout(() => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send("import Main exposing (..)\n");
+                    }
+                }, 300);
+            };
+            socket.onclose = notify;
+            socket.onerror = notify;
+        })
+        .catch(() => notify());
 }
 
 // connect terminal to websocket
