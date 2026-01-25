@@ -34,7 +34,7 @@ app.post('/terminals', (req, res) => {
     
     fs.writeFileSync('/tmp/'+repl_name, 'module Main exposing (..)\n\nmessage = "Hello World"');
 
-    term = pty.spawn('docker', ["run", "-it", "--rm", "-m", "300m", "--cpus", "0.25", "-v", "/tmp/"+repl_name+":/src/Main.elm", "--name", repl_name, "elm-repl"], {
+    term = pty.spawn('docker', ["run", "-it", "--rm", "-m", "512m", "--cpus", "0.25", "-v", "/tmp/"+repl_name+":/src/Main.elm", "--name", repl_name, "elm-repl"], {
         name: 'xterm-color',
             cols: cols,
             rows: rows
