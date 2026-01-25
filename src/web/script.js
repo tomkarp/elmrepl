@@ -135,11 +135,60 @@ async function formatCode() {
     }
 }
 
+function applyEditorDarkMode(enabled) {
+    localStorage.setItem("darkmode-editor", enabled);
+    const checkbox = document.getElementById('darkmode-editor');
+    if (checkbox) {
+        checkbox.checked = enabled;
+    }
+    if (window.theEditor) {
+        window.theEditor.updateOptions({ theme: enabled ? "dark" : "light" });
+    }
+}
+
+function toggleEditorDarkMode() {
+    const checkbox = document.getElementById('darkmode-editor');
+    const current = checkbox ? checkbox.checked : localStorage.getItem("darkmode-editor") === 'true';
+    applyEditorDarkMode(!current);
+}
+
+function applyTerminalDarkMode(enabled) {
+    localStorage.setItem("darkmode-terminal", enabled);
+    const checkbox = document.getElementById('darkmode-terminal');
+    if (checkbox) {
+        checkbox.checked = enabled;
+    }
+    if (term) {
+        term.options.theme = enabled ? {} : terminaLightTheme;
+        if (window.fit) {
+            setTimeout(() => window.fit.fit(), 50);
+        }
+    }
+}
+
+function toggleTerminalDarkMode() {
+    const checkbox = document.getElementById('darkmode-terminal');
+    const current = checkbox ? checkbox.checked : localStorage.getItem("darkmode-terminal") === 'true';
+    applyTerminalDarkMode(!current);
+}
+
 // Keyboard shortcut for formatting (Cmd+Shift+F on Mac, Ctrl+Shift+F on others)
 window.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyF') {
         e.preventDefault();
         formatCode();
+        return;
+    }
+    // Alt differentiates terminal toggle so editor doesn't double-toggle.
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.altKey && e.code === 'KeyD') {
+        e.preventDefault();
+        toggleTerminalDarkMode();
+        return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === 'KeyD') {
+        e.preventDefault();
+        toggleEditorDarkMode();
+        return;
     }
     // Keyboard shortcut for toggling Vim mode (Cmd+Shift+V on Mac, Ctrl+Shift+V on others)
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyV') {
@@ -533,24 +582,12 @@ if (localStorage.getItem("darkmode-editor") === null) {
 }
 document.querySelector('#darkmode-editor').checked = (localStorage.getItem('darkmode-editor') === 'true')
 document.getElementById("darkmode-editor").addEventListener("change", function () {
-    if (this.checked) {
-        window.theEditor.updateOptions({ theme: "dark" });
-        localStorage.setItem("darkmode-editor", true);
-    } else {
-        window.theEditor.updateOptions({ theme: "light" });
-        localStorage.setItem("darkmode-editor", false);
-    }
+    applyEditorDarkMode(this.checked);
 });
 
 document.querySelector('#darkmode-terminal').checked = (localStorage.getItem('darkmode-terminal') === 'true')
 document.getElementById("darkmode-terminal").addEventListener("change", function () {
-    if (this.checked) {
-        term.options.theme = {};
-        localStorage.setItem("darkmode-terminal", true);
-    } else {
-        term.options.theme = terminaLightTheme;
-        localStorage.setItem("darkmode-terminal", false);
-    }
+    applyTerminalDarkMode(this.checked);
 });
 
 // keep connection alive only in safari

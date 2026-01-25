@@ -148,3 +148,22 @@ body {
   text-decoration: none;
   cursor: pointer;
 }
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 16px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.setting-hint {
+  font-size: 12px;
+  opacity: 0.8;
+}

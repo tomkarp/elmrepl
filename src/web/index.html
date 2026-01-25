@@ -82,18 +82,21 @@
             <span id="close">&times;</span>
 
             <h1>Settings</h1>
-            <div>
-                Darkmode Editor:
-                <input type="checkbox" checked id="darkmode-editor">
+            <div class="settings-list">
+                <label class="setting-row">
+                    <input type="checkbox" checked id="darkmode-editor">
+                    <span>Darkmode Editor <span class="setting-hint">(Cmd/Ctrl+Shift+D)</span></span>
+                </label>
 
-                <br>
-                Darkmode Terminal:
-                <input type="checkbox" checked id="darkmode-terminal">
+                <label class="setting-row">
+                    <input type="checkbox" checked id="darkmode-terminal">
+                    <span>Darkmode Terminal <span class="setting-hint">(Cmd/Ctrl+Alt+Shift+D)</span></span>
+                </label>
 
-                <br>
-                Vim Mode:
-                <input type="checkbox" id="vim-mode">
-
+                <label class="setting-row">
+                    <input type="checkbox" id="vim-mode">
+                    <span>Vim Mode <span class="setting-hint">(Cmd/Ctrl+Shift+V)</span></span>
+                </label>
             </div>
         </div>
 
