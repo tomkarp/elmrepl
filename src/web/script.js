@@ -439,10 +439,16 @@ const createTerminal = () => {
             }
         }
         if (arg.ctrlKey && arg.code === "KeyV" && arg.type === "keydown") {
+            arg.preventDefault();
+            arg.stopPropagation();
             navigator.clipboard.readText()
                 .then(text => {
-                    socket.send(text)
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(text)
+                    }
                 })
+                .catch(() => {});
+            return false;
         };
         return true;
     });
