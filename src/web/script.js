@@ -216,11 +216,14 @@ function getEditorValue() {
     const compressed = urlParams.get('compressed');
 
     if (code) {
-        fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent('module Main exposing (..)\n\n' + code), { method: 'POST' });
         value = 'module Main exposing (..)\n\n' + code;
     } else if (compressed) {
         decompress(compressed, 'gzip').then(function (decompressed) {
             window.theEditor.setValue(decompressed);
+                    // Save to server once decompressed and repl_name is available
+                    if (window.repl_name) {
+                        fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(decompressed), { method: 'POST' });
+                    }
         });
         value = "decompressing ..."
     } else {
@@ -558,6 +561,11 @@ if (repl) {
         socket.send("import Main exposing (..)\n" + repl + "\n")
     }, 2000);
 } else {
+            
+                // Save editor content to server now that repl_name is available
+                if (window.theEditor) {
+                    fetch('/save/' + repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
+                }
     setTimeout(() => {
         socket.send("import Main exposing (..)\n")
     }, 2000);
