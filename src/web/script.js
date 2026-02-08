@@ -220,10 +220,10 @@ function getEditorValue() {
     } else if (compressed) {
         decompress(compressed, 'gzip').then(function (decompressed) {
             window.theEditor.setValue(decompressed);
-                    // Save to server once decompressed and repl_name is available
-                    if (window.repl_name) {
-                        fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(decompressed), { method: 'POST' });
-                    }
+            // Save to server once decompressed and repl_name is available
+            if (window.repl_name) {
+                fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(decompressed), { method: 'POST' });
+            }
         });
         value = "decompressing ..."
     } else {
@@ -480,6 +480,11 @@ const createTerminal = () => {
             socket.onopen = runRealTerminal;
             socket.onclose = notify;
             socket.onerror = notify;
+
+            // Save editor content to server now that repl_name is available
+            if (window.theEditor) {
+                fetch('/save/' + repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
+            }
         });
     }).catch((e) => {
         document.getElementById("overlay").innerText = e;
@@ -539,7 +544,7 @@ const reconnect = () => {
                     if (socket && socket.readyState === WebSocket.OPEN) {
                         socket.send("import Main exposing (..)\n");
                     }
-                }, 300);
+                }, 2000);
             };
             socket.onclose = notify;
             socket.onerror = notify;
@@ -561,11 +566,6 @@ if (repl) {
         socket.send("import Main exposing (..)\n" + repl + "\n")
     }, 2000);
 } else {
-            
-                // Save editor content to server now that repl_name is available
-                if (window.theEditor) {
-                    fetch('/save/' + repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
-                }
     setTimeout(() => {
         socket.send("import Main exposing (..)\n")
     }, 2000);
