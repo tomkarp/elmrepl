@@ -1,7 +1,8 @@
 FROM alpine
-RUN apk --update add openssl wget gzip 
-RUN wget https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz
-RUN gunzip binary-for-linux-64-bit.gz && mv binary-for-linux-64-bit /bin/elm
+ARG ELM_VERSION=0.19.2
+RUN apk --update add openssl wget gzip
+RUN wget -O elm.gz https://github.com/elm/compiler/releases/download/${ELM_VERSION}/elm-${ELM_VERSION}-linux-x64.gz
+RUN gunzip -c elm.gz > /bin/elm
 RUN chmod +x /bin/elm
 
 FROM alpine
