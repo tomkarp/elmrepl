@@ -3,73 +3,68 @@
 
 If you want to learn or teach Elm, it is often useful to be able to enter and test small Elm programs in an online editor without having to create an Elm project and open a full blown IDE. Especially in schools, you often don't have the possibility to install arbitrary software or open the terminal. Additionally, it can be useful to share Elm programs via a link. The online REPL for Elm offers all of this.
 
+## How it works
+
+Everything runs in the browser. After the page has loaded, there is no further communication with the server.
+
+* **REPL:** [elm-compiler-in-elm](https://github.com/pithub/elm-compiler-in-elm) is a port of the official Elm compiler (0.19.1) from Haskell to Elm. Its `elm repl` runs in a Web Worker ([elm-repl-worker](https://github.com/pithub/elm-repl-worker), with small additions in `repl-worker/`). The compiled code is evaluated in the same worker, so long computations don't block the page and endless loops can be interrupted with `Ctrl+C`.
+* **Packages:** `elm/browser`, `elm/core`, `elm/html`, `elm/json`, `elm/random` and `elm/svg` (plus their dependencies `elm/time`, `elm/url` and `elm/virtual-dom`) are precompiled with the official Elm compiler at build time and shipped as a virtual file system. The editor content is the module `Main` in `src/Main.elm`.
+* **Format:** The format button uses the elm-format port of [Guida](https://github.com/guida-lang/compiler), also in a Web Worker.
+
+## Download (offline use, e.g. in school)
+
+A ready-to-use build is attached to the GitHub release and updated automatically on every push to `main`:
+[elmrepl.zip](https://github.com/tomkarp/elmrepl/releases/download/main-latest/elmrepl.zip)
+
+Unzip the file and open `elmrepl/index.html` in the browser (double-click). No server, no installation and no internet connection are needed. The folder `elmrepl` can also be served by any web server, e.g. a school server.
+
+When the page is opened from the file system, share links point to the local file and only work on the same computer.
+
 ## Required software
 
-You need *npm* and *docker* on your server. If you want to expose your server to the world, a reverse proxy is useful. I use https://caddyserver.com, because its configuration is very nice. All you need is a Caddyfile with e.g. this content:
+To build the site you need *Node.js* (18 or newer), *npm* and *git*. The build downloads the Elm compiler port and the Elm packages from GitHub (it does not need package.elm-lang.org).
 
-```
-:80 {
-        redir https://elmrepl.de
-}
+No docker and no special server are needed anymore. The result is a static website in `dist/` that can be served by any web server.
 
-elmrepl.de {
-        reverse_proxy localhost:3000
-}
-```
+## Build and run locally
 
-If you want to have more control of your Node.js-Server, *pm2* is useful.
-
-## Configuration
-
-### Swap-file
-For each user a docker container is started. Docker containers require significant RAM, hence a 32G swap file is useful, if your server doesn't have plenty of RAM. This can be done with the following commands:
-
-```
-sudo dd if=/dev/zero of=/swapfile bs=1M count=32786
-mkswap /swapfile
-chmod 0600 /swapfile
-swapon /swapfile
-```
-
-To use the swap-file after reboot, add this to `/etc/fstab`
-```
-/swapfile    none    swap    sw      0 0
-```
-
-### Install and start sever
-
-Clone the repo:
 ```
 git clone http://github.com/tomkarp/elmrepl
-```
-
-Change to `elmrepl/docker` and build the image:
-```
-cd elmrepl/docker
-docker build -t elm-repl .
-```
-
-Change to `elmrepl` directory and install node modules:
-```
+cd elmrepl
 npm install
+npm run build
+npm start
 ```
 
-You can start the server with `node src/app.js`. If your server should start after reboot and you are using pm2, you can edit crontab ( `crontab -e`):
+Then open http://localhost:3000. `npm start` runs a minimal static file server for `dist/` (use `npm start -- 8080` for another port).
+
+`npm run build` caches downloads in `build/`. Use `node scripts/build.js --clean` to start from scratch.
+
+## Deployment
+
+https://elmrepl.de is served by GitHub Pages: on every push to `main`, the GitHub Action `.github/workflows/release.yml` builds the site and deploys it (repository settings: Pages, source "GitHub Actions", custom domain `elmrepl.de`).
+
+Alternatively, copy the content of `dist/` to any static web server. With https://caddyserver.com, the Caddyfile could look like this:
+
 ```
-@reboot sudo pm2 start /pathtoyourelmrepl/elmrepl/src/app.js --name elmrepl
+elmrepl.de {
+        root * /pathtoyourelmrepl/elmrepl/dist
+        file_server
+        encode zstd gzip
+}
 ```
 
-### Delete old docker containers
-
-Sometimes docker containers were not removed properly. Also, it can be useful to limit the time for a connection. One way to do this, is to add this to crontab (removes docker containers older than 2 hours):
-
-```
-5 * * * * sudo docker ps --filter "ancestor=elm-repl" --format "{{.ID}} {{.Names}} {{.RunningFor}}" | awk '/hours/ && $3 > 2 { print $1 }' | while read -r container_id; do   docker kill "$container_id";  done
-```
+All paths are relative, so the site also works in a subdirectory.
 
 ## Usage
 
 The main usage should be quite obvious. Just type your Elm code in the editor and use it the REPL.
+The REPL always uses the current content of the editor: changes are picked up with the next input in the REPL, like in `elm repl`.
+
+* `Ctrl+C` in the REPL interrupts a running computation (e.g. an endless loop). The REPL is restarted and previous inputs are restored. At the prompt, `Ctrl+C` discards the current input (or copies the selected text).
+* Arrow keys, `Home`/`End` and the usual readline shortcuts (`Ctrl+A`, `Ctrl+E`, `Ctrl+U`, `Ctrl+K`, `Ctrl+W`, `Ctrl+L`) edit the input, `Up`/`Down` browse the history.
+* `:exit` stops the REPL, the button "Restart" starts a fresh one.
+
 If you want to share the code, you can press the button on the lower right. It generates a link, that contains your compressed Elm-program. The program is not saved on the server, but only contained in the link.
 
 If you want you can use the URL parameters:
@@ -84,5 +79,20 @@ Here, you can find an example:
 
 https://elmrepl.de?code=%0Asum%20n%20%3D%0A%20%20%20%20if%20n%20%3D%3D%201%20then%201%0A%20%20%20%20else%20n%20%2B%20sum%20%28n%20-%201%29&repl=sum%2010
 
+## Differences to `elm repl`
+
+* The compiler port is based on Elm 0.19.1, so the REPL shows version 0.19.1.
+* Suggestions in "These names seem close though" may be listed in a different order.
+
+## Project structure
+
+* `src/web/` - the web page (editor, terminal, REPL client in `repl.js`)
+* `repl-worker/` - REPL worker additions (`Worker.elm`, `host.js`) and the format worker
+* `scripts/build.js` - builds `dist/`
+* `scripts/serve.js` - static file server for local testing
+* `.github/workflows/release.yml` - builds `elmrepl.zip`, publishes it as a release and deploys `main` to GitHub Pages
+
 ## Created by
 https://github.com/leon-th
+
+The REPL in the browser is based on [elm-compiler-in-elm](https://github.com/pithub/elm-compiler-in-elm) and [elm-repl-worker](https://github.com/pithub/elm-repl-worker) by Peter Capitain, formatting is based on [Guida](https://github.com/guida-lang/compiler) by Décio Ferreira.

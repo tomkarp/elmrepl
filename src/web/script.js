@@ -95,16 +95,49 @@ $(".panel-bottom").resizable({
 
 
 
-// save code to server
+// write the editor content to src/Main.elm of the REPL (also happens before every REPL input)
 function save() {
-    if (!window.repl_name) return;
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
+    if (window.replTerminal) window.replTerminal.syncCode();
+}
+
+// elm-format runs in its own web worker (see repl-worker/format-worker.js)
+let formatWorker = null;
+let formatRequestId = 0;
+const formatRequests = {};
+
+function getFormatWorker() {
+    if (!formatWorker) {
+        formatWorker = replAssets.then(function (assets) {
+            const worker = new Worker(assets.formatWorker);
+            worker.onmessage = function (event) {
+                const resolve = formatRequests[event.data.id];
+                delete formatRequests[event.data.id];
+                if (resolve) resolve(event.data);
+            };
+            return worker;
+        });
+    }
+    return formatWorker;
+}
+
+function format(source) {
+    return getFormatWorker().then(function (worker) {
+        return new Promise(function (resolve) {
+            const id = ++formatRequestId;
+            formatRequests[id] = resolve;
+            worker.postMessage({ id: id, source: source });
+            setTimeout(function () {
+                if (formatRequests[id]) {
+                    delete formatRequests[id];
+                    resolve({ error: 'timeout' });
+                }
+            }, 20000);
+        });
+    });
 }
 
 async function formatCode() {
-    if (!window.repl_name) {
-        alert('REPL not ready yet');
+    if (!window.theEditor) {
         return;
     }
 
@@ -114,22 +147,20 @@ async function formatCode() {
     formatBtn.style.opacity = '0.6';
 
     try {
-        await fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
-        const res = await fetch('/format/' + window.repl_name, { method: 'POST' });
-        if (!res.ok) {
-            const msg = await res.text();
-            alert('Formatting failed: ' + (msg || 'unknown error'));
-            formatBtn.innerHTML = originalContent;
-            formatBtn.style.opacity = '1';
-            return;
+        const source = window.theEditor.getValue();
+        const result = await format(source);
+        if (result.error !== undefined) {
+            alert('Formatting failed: ' + result.error);
+        } else if (result.formatted !== source) {
+            // keep undo history
+            const model = window.theEditor.getModel();
+            window.theEditor.pushUndoStop();
+            window.theEditor.executeEdits('elm-format', [{ range: model.getFullModelRange(), text: result.formatted }]);
+            window.theEditor.pushUndoStop();
         }
-        const formatted = await res.text();
-        window.theEditor.setValue(formatted);
-        
-        formatBtn.innerHTML = originalContent;
-        formatBtn.style.opacity = '1';
     } catch (e) {
         alert('Formatting failed: ' + e);
+    } finally {
         formatBtn.innerHTML = originalContent;
         formatBtn.style.opacity = '1';
     }
@@ -210,6 +241,10 @@ window.onbeforeunload = function () {
 
 // get url parameter ?code=... and set it as the editor content
 // get url parameter ?compressed=... and set it as the editor content
+// resolves when the editor shows the final content (decompressing is asynchronous)
+let resolveEditorReady;
+const editorReady = new Promise(function (resolve) { resolveEditorReady = resolve; });
+
 function getEditorValue() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -217,22 +252,27 @@ function getEditorValue() {
 
     if (code) {
         value = 'module Main exposing (..)\n\n' + code;
+        setTimeout(resolveEditorReady, 0);
     } else if (compressed) {
-        decompress(compressed, 'gzip').then(function (decompressed) {
-            window.theEditor.setValue(decompressed);
-            // Save to server once decompressed and repl_name is available
-            if (window.repl_name) {
-                fetch('/save/' + window.repl_name + '?data=' + encodeURIComponent(decompressed), { method: 'POST' });
-            }
-        });
+        const decompressing = decompress(compressed, 'gzip');
+        if (decompressing) {
+            decompressing.then(function (decompressed) {
+                window.theEditor.setValue(decompressed);
+            }).catch(function () {
+                alert('Compressed data is not valid');
+            }).finally(resolveEditorReady);
+        } else {
+            setTimeout(resolveEditorReady, 0);
+        }
         value = "decompressing ..."
     } else {
         value = 'module Main exposing (..)\n\nmessage = "Hello World"'
+        setTimeout(resolveEditorReady, 0);
     }
     return value;
 }
 
-require.config({ paths: { 'vs': '/static/monaco-editor/min/vs' } });
+require.config({ paths: { 'vs': 'static/monaco-editor/min/vs', 'monaco-vim': 'static/monaco-vim/dist/monaco-vim' } });
 
 require(['vs/editor/editor.main'], function () {
     // Monaco is already globally available as window.monaco after loading
@@ -275,8 +315,6 @@ require(['vs/editor/editor.main'], function () {
         automaticLayout: true,
     });
 
-    // auto-save on change
-    monaco?.editor?.getModels()[0].onDidChangeContent(save);
     // save with ctrl + s in editor window
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S, save);
 
@@ -287,7 +325,6 @@ require(['vs/editor/editor.main'], function () {
 
     // Initialize Vim mode if enabled in localStorage
     if (localStorage.getItem("vim-mode") === 'true') {
-        require.config({ paths: { 'monaco-vim': '/static/monaco-vim/dist/monaco-vim' } });
         require(['monaco-vim'], function (MonacoVim) {
             try {
                 const statusBar = document.createElement('div');
@@ -310,6 +347,11 @@ require(['vs/editor/editor.main'], function () {
                 console.error('Failed to initialize vim mode:', e);
             }
         });
+    } else {
+        // Preload the Vim mode library, so that it can be enabled later without network access
+        require(['monaco-vim'], function () {}, function (err) {
+            console.error('Failed to preload monaco-vim:', err);
+        });
     }
 });
 
@@ -329,7 +371,6 @@ function setupVimModeToggle() {
 }
 
 function activateVimMode() {
-    require.config({ paths: { 'monaco-vim': '/static/monaco-vim/dist/monaco-vim' } });
     require(['monaco-vim'], function (MonacoVim) {
         try {
             if (!document.getElementById('vim-status')) {
@@ -411,9 +452,7 @@ terminaLightTheme = {
     "cursor": "#4F525D"
 }
 
-let term,
-    socketURL,
-    socket;
+let term;
 const fit = new FitAddon.FitAddon();
 const terminalContainer = document.getElementById('terminal-container');
 
@@ -424,10 +463,10 @@ const createTerminal = () => {
     term = new Terminal({
         fontSize: 18,
         fontFamily: "Menlo, Monaco, monospace",
-        cursorBlink: false
+        cursorBlink: false,
+        convertEol: true,
     });
     term.options.theme = localStorage.getItem("darkmode-terminal") === 'true' ? {} : terminaLightTheme;
-    socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/';
 
     term.open(terminalContainer);
 
@@ -445,11 +484,7 @@ const createTerminal = () => {
             arg.preventDefault();
             arg.stopPropagation();
             navigator.clipboard.readText()
-                .then(text => {
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(text)
-                    }
-                })
+                .then(text => window.replTerminal.type(text))
                 .catch(() => {});
             return false;
         };
@@ -459,37 +494,12 @@ const createTerminal = () => {
     // dynamic resize of terminal
     term.loadAddon(fit);
     fit.fit();
-    term.onResize(function (size) {
-        if (!window.repl_name) {
-            return;
-        }
-        fetch('/terminals/' + window.repl_name + '/size?cols=' + size.cols + '&rows=' + size.rows, { method: 'POST' });
-    });
 
-    // resize terminal on server
-    fetch('/terminals?cols=' + term.cols + '&rows=' + term.rows, { method: 'POST' }).then((res) => {
-        if (!res.ok) {
-            notify();
-            return;
-        }
-
-        res.text().then((repl_name) => {
-            window.repl_name = repl_name;
-            socketURL += repl_name;
-            socket = new WebSocket(socketURL);
-            socket.onopen = runRealTerminal;
-            socket.onclose = notify;
-            socket.onerror = notify;
-
-            // Save editor content to server now that repl_name is available
-            if (window.theEditor) {
-                fetch('/save/' + repl_name + '?data=' + encodeURIComponent(window.theEditor.getValue()), { method: 'POST' });
-            }
-        });
-    }).catch((e) => {
-        document.getElementById("overlay").innerText = e;
-        notify();
-    });;
+    window.replTerminal = new ReplTerminal(
+        term,
+        () => window.theEditor ? window.theEditor.getValue() : '',
+        notify
+    );
 }
 
 if (localStorage.getItem("darkmode-terminal") === null) {
@@ -500,76 +510,27 @@ createTerminal();
 
 new ResizeObserver(function () { fit.fit(); }).observe(document.getElementsByClassName("panel-top")[0])
 
-const notify = () => {
+// the REPL was stopped (:exit) or failed
+function notify() {
     terminalContainer.style.opacity = 0.5;
-    term.write("\r\nConnection lost.\r\n");
     document.getElementById('connection-error').style.display = 'block';
 }
 
-// reconnect to terminal (creates a fresh container and reuses current editor code)
-const reconnect = () => {
-    const code = window.theEditor ? window.theEditor.getValue() : '';
-
+// start a fresh REPL with the current editor code
+function reconnect() {
     document.getElementById('connection-error').style.display = 'none';
     terminalContainer.style.opacity = 1;
-
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
-    }
-
-    term.clear();
-
-    const cols = term ? term.cols : 80;
-    const rows = term ? term.rows : 24;
-
-    fetch('/terminals?cols=' + cols + '&rows=' + rows, { method: 'POST' })
-        .then((res) => {
-            if (!res.ok) {
-                notify();
-                return null;
-            }
-            return res.text();
-        })
-        .then((repl_name) => {
-            if (!repl_name) return;
-
-            window.repl_name = repl_name;
-
-            socketURL = ((location.protocol === 'https:') ? 'wss://' : 'ws://') + location.hostname + ((location.port) ? (':' + location.port) : '') + '/ws/' + repl_name;
-            socket = new WebSocket(socketURL);
-            socket.onopen = () => {
-                runRealTerminal();
-                fetch('/save/' + repl_name + '?data=' + encodeURIComponent(code), { method: 'POST' });
-                setTimeout(() => {
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send("import Main exposing (..)\n");
-                    }
-                }, 2000);
-            };
-            socket.onclose = notify;
-            socket.onerror = notify;
-        })
-        .catch(() => notify());
+    term.focus();
+    window.replTerminal.restart("import Main exposing (..)\n");
 }
 
-// connect terminal to websocket
-const runRealTerminal = () => {
-    term.loadAddon(new AttachAddon.AttachAddon(socket));
-    term._initialized = true;
-}
-
-// if parameter ?repl=... is set send to websocket
+// start the REPL; if parameter ?repl=... is set, type it after importing Main
 const urlParams = new URLSearchParams(window.location.search);
 const repl = urlParams.get('repl');
-if (repl) {
-    setTimeout(() => {
-        socket.send("import Main exposing (..)\n" + repl + "\n")
-    }, 2000);
-} else {
-    setTimeout(() => {
-        socket.send("import Main exposing (..)\n")
-    }, 2000);
-}
+editorReady.then(() => {
+    window.replTerminal.start("import Main exposing (..)\n" + (repl ? repl + "\n" : ""));
+    term.focus();
+});
 
 
 var settingsModal = document.getElementById("settingsModal");
@@ -603,14 +564,3 @@ document.querySelector('#darkmode-terminal').checked = (localStorage.getItem('da
 document.getElementById("darkmode-terminal").addEventListener("change", function () {
     applyTerminalDarkMode(this.checked);
 });
-
-// keep connection alive only in safari
-function isSafari() {
-    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-}
-if (isSafari())
-    setInterval(function () {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send("");
-        }
-    }, 30000); // Alle 30 Sekunden

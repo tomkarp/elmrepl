@@ -1,25 +1,26 @@
 {
   "name": "elm-repl-online",
-  "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "description": "Online Elm REPL that compiles and runs Elm code entirely in the browser",
+  "private": true,
   "scripts": {
+    "build": "node scripts/build.js",
+    "start": "node scripts/serve.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.1.5",
-    "express-ws": "^5.0.2",
     "jquery": "^3.7.1",
     "jquery-resizable-dom": "^0.35.0",
     "monaco-editor": "^0.45.0",
     "monaco-vim": "^0.3.5",
-    "node-pty": "^1.0.0",
-    "uuid": "^9.0.1",
     "xterm": "^5.3.0",
-    "xterm-addon-attach": "^0.9.0",
     "xterm-addon-fit": "^0.8.0"
+  },
+  "devDependencies": {
+    "elm": "0.19.1-6",
+    "esbuild": "^0.28.2",
+    "guida": "1.0.0-beta.2"
   }
 }

@@ -95,7 +95,7 @@ body {
 .splitter-horizontal {
   flex: 0 0 auto;
   height: 1%;
-  background: url(/static/jquery-resizable-dom/assets/hsizegrip.png) center center no-repeat #535353;
+  background: url(static/jquery-resizable-dom/assets/hsizegrip.png) center center no-repeat #535353;
   cursor: row-resize;
   background-color: black;
 }
@@ -166,4 +166,37 @@ body {
 .setting-hint {
   font-size: 12px;
   opacity: 0.8;
+}
+
+.bar-offline {
+  color: white;
+  font-size: 14px;
+  margin-left: 12px;
+  vertical-align: top;
+  text-decoration: none;
+}
+
+.bar-offline:hover {
+  text-decoration: underline;
+}
+
+.settings-text {
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.settings-download {
+  display: inline-block;
+  padding: 6px 16px;
+  background: #007acc;
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settings-download:hover {
+  background: #1a8ad4;
 }

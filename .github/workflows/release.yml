@@ -1,0 +1,74 @@
+# Builds the static site on every push to main:
+#
+# - publishes it as elmrepl.zip in the release main-latest (replaced on every push, so the
+#   download link always points to the newest build):
+#     https://github.com/<owner>/<repo>/releases/download/main-latest/elmrepl.zip
+# - deploys it to GitHub Pages (https://elmrepl.de)
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Upload GitHub Pages artifact
+        if: github.ref_name == 'main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      - name: Package
+        run: |
+          cp -R dist elmrepl
+          zip -qr elmrepl.zip elmrepl
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          tag="$BRANCH-latest"
+          if [ "$BRANCH" = main ]; then flags="--latest"; else flags="--prerelease --latest=false"; fi
+          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release create "$tag" elmrepl.zip $flags \
+            --target "$GITHUB_SHA" \
+            --title "Elm REPL ($BRANCH)" \
+            --notes "Automatic build of the branch \`$BRANCH\` (${GITHUB_SHA::7}).
+
+          Unzip elmrepl.zip and open \`elmrepl/index.html\` in the browser, or serve the folder \`elmrepl\` with any web server. No internet connection is needed."
+
+  pages:
+    if: github.ref_name == 'main'
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
