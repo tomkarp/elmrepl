@@ -5,14 +5,11 @@
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>Elm REPL</title>
     <link rel="icon" href="favicon.ico" />
-    <link rel="stylesheet" href="static/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="vendor.css" />
     <link rel="stylesheet" href="style.css" />
-    <script src="monarch.js"></script>
-    <script src="static/xterm/xterm.js"></script>
-    <script src="static/xterm-addon-fit/xterm-addon-fit.js"></script>
-    <script src="static/jquery/jquery.min.js"></script>
-    <script src="static/jquery-resizable-dom/jquery-resizable.min.js"></script>
     <script src="repl.js"></script>
+    <script src="vendor.js"></script>
+    <script src="monarch.js"></script>
 </head>
 
 <body>
@@ -25,9 +22,9 @@
 
         <div class="panel-bottom">
             <div id="terminal-container"></div>
-            <div id="connection-error" style="display: none; position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); padding: 12px 16px; text-align: center; border: 1px solid #ff6666; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
-                <span style="color: #ffecec; margin-right: 12px; font-weight: 600;">REPL stopped</span>
-                <button onclick="reconnect()" style="padding: 6px 16px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Restart</button>
+            <div id="repl-stopped">
+                <span>REPL stopped</span>
+                <button onclick="restartRepl()">Restart</button>
             </div>
         </div>
     </div>
@@ -104,16 +101,15 @@
 
             <h2>Offline version</h2>
             <p class="settings-text">
-                The Elm REPL runs entirely in the browser, so it can also be used without internet.
-                Download the zip file, unzip it and open <code>index.html</code> in the browser.
-                The folder can also be put on any web server.
+                The Elm REPL runs entirely in the browser, so it can also be used without internet:
+                elmrepl.de keeps working once it has been opened. Or download the zip file, unzip it
+                and open <code>index.html</code> in the browser. The folder can also be put on any web server.
             </p>
             <a class="offline-link settings-download" href="https://github.com/tomkarp/elmrepl/releases/download/main-latest/elmrepl.zip">Download elmrepl.zip</a>
         </div>
 
     </div>
 
-    <script src="static/monaco-editor/min/vs/loader.js"></script>
     <script src="script.js"></script>
 </body>
 

@@ -16,12 +16,8 @@ const TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon',
-    '.ttf': 'font/ttf',
-    '.dat': 'application/octet-stream',
-    '.png': 'image/png',
 };
 
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
@@ -38,7 +34,7 @@ http.createServer((req, res) => {
         return;
     }
     let file = path.join(DIST, pathname);
-    if (!file.startsWith(DIST)) {
+    if (file !== DIST && !file.startsWith(DIST + path.sep)) {
         res.writeHead(403).end();
         return;
     }

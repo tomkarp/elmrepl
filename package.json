@@ -5,18 +5,15 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.js",
-    "start": "node scripts/serve.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node scripts/serve.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Thomas Karp",
+  "license": "MIT",
   "dependencies": {
-    "jquery": "^3.7.1",
-    "jquery-resizable-dom": "^0.35.0",
-    "monaco-editor": "^0.45.0",
-    "monaco-vim": "^0.3.5",
-    "xterm": "^5.3.0",
-    "xterm-addon-fit": "^0.8.0"
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "monaco-editor": "^0.57.0",
+    "monaco-vim": "^0.4.4"
   },
   "devDependencies": {
     "elm": "0.19.1-6",

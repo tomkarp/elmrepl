@@ -13,13 +13,14 @@ function compress(string, encoding) {
 
 // take compressed base64 string as string and return decompressed string
 function decompress(string, encoding) {
+    let binary;
     try {
-        atob(string);
+        binary = atob(string);
     } catch (e) {
         alert('Compressed data is not valid');
         return;
     }
-    const byteArray = Uint8Array.from(atob(string), c => c.charCodeAt(0));
+    const byteArray = Uint8Array.from(binary, c => c.charCodeAt(0));
     const ds = new DecompressionStream(encoding);
     const writer = ds.writable.getWriter();
     writer.write(byteArray);
@@ -38,6 +39,7 @@ function downloadCode() {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
+    markSaved();
     setTimeout(function () {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
@@ -54,6 +56,7 @@ function uploadCode() {
         reader.readAsText(file, 'UTF-8');
         reader.onload = readerEvent => {
             window.theEditor.setValue(readerEvent.target.result);
+            markSaved();
         }
     }
     input.click();
@@ -64,6 +67,7 @@ function shareCode() {
     compress(window.theEditor.getValue(), 'gzip').then(function (compressed) {
         var url = window.location.href.split('?')[0] + '?compressed=' + encodeURIComponent(compressed);
         navigator.clipboard.writeText(url).then(function () {
+            markSaved();
             alert('Link copied to clipboard');
         }, function (err) {
             console.error('Could not copy text: ', err);
@@ -81,21 +85,34 @@ window.addEventListener('drop', function (e) {
     reader.readAsText(e.dataTransfer.files[0], 'UTF-8');
     reader.onload = readerEvent => {
         window.theEditor.setValue(readerEvent.target.result);
+        markSaved();
     }
 }, false);
 
-$(".panel-top").resizable({
-    handleSelector: ".splitter-horizontal",
-    resizeWidth: false,
+// drag the splitter to resize editor and terminal
+const panelTop = document.querySelector('.panel-top');
+const splitter = document.querySelector('.splitter-horizontal');
+splitter.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    splitter.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const startHeight = panelTop.offsetHeight;
+    const move = function (e) {
+        panelTop.style.height = Math.max(0, startHeight + e.clientY - startY) + 'px';
+    };
+    const stop = function () {
+        splitter.removeEventListener('pointermove', move);
+        splitter.removeEventListener('pointerup', stop);
+        splitter.removeEventListener('pointercancel', stop);
+    };
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', stop);
+    splitter.addEventListener('pointercancel', stop);
 });
-$(".panel-bottom").resizable({
-    handleSelector: ".splitter-horizontal",
-    resizeWidth: false,
-});
 
 
-
-// write the editor content to src/Main.elm of the REPL (also happens before every REPL input)
+// Ctrl+S: write the editor content to src/Main.elm of the REPL (this also happens before every
+// REPL input, but users are used to saving, and it keeps the browser's "save page" dialog away)
 function save() {
     if (window.replTerminal) window.replTerminal.syncCode();
 }
@@ -190,7 +207,7 @@ function applyTerminalDarkMode(enabled) {
         checkbox.checked = enabled;
     }
     if (term) {
-        term.options.theme = enabled ? {} : terminaLightTheme;
+        term.options.theme = enabled ? {} : terminalLightTheme;
         if (window.fit) {
             setTimeout(() => window.fit.fit(), 50);
         }
@@ -221,23 +238,44 @@ window.addEventListener('keydown', (e) => {
         toggleEditorDarkMode();
         return;
     }
-    // Keyboard shortcut for toggling Vim mode (Cmd+Shift+V on Mac, Ctrl+Shift+V on others)
+    // Keyboard shortcut for toggling Vim mode (Cmd+Shift+V on Mac, Ctrl+Shift+V on others),
+    // also in the terminal; enabling it moves the focus to the editor
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyV') {
         e.preventDefault();
         const vimCheckbox = document.getElementById('vim-mode');
         vimCheckbox.checked = !vimCheckbox.checked;
         if (vimCheckbox.checked) {
             activateVimMode();
+            window.theEditor.focus();
         } else {
             deactivateVimMode();
         }
     }
 });
 
-// warn before reload/closing
-window.onbeforeunload = function () {
-    return 'saved your changes?';
-};
+// keep the site in the browser cache, so that it also works offline (see src/service-worker.js;
+// only with https, not when index.html is opened from the file system or during local development)
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (error) {
+            console.error('Could not register the service worker:', error);
+        });
+    });
+}
+
+// warn before reload/closing if the code was changed since it was loaded, opened, downloaded or shared
+let savedVersion = null;
+
+function markSaved() {
+    savedVersion = window.theEditor.getModel().getAlternativeVersionId();
+}
+
+window.addEventListener('beforeunload', function (e) {
+    if (window.theEditor && window.theEditor.getModel().getAlternativeVersionId() !== savedVersion) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
 
 // get url parameter ?code=... and set it as the editor content
 // get url parameter ?compressed=... and set it as the editor content
@@ -249,6 +287,7 @@ function getEditorValue() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const compressed = urlParams.get('compressed');
+    let value;
 
     if (code) {
         value = 'module Main exposing (..)\n\n' + code;
@@ -264,19 +303,23 @@ function getEditorValue() {
         } else {
             setTimeout(resolveEditorReady, 0);
         }
-        value = "decompressing ..."
+        value = "decompressing ...";
     } else {
-        value = 'module Main exposing (..)\n\nmessage = "Hello World"'
+        value = 'module Main exposing (..)\n\nmessage = "Hello World"';
         setTimeout(resolveEditorReady, 0);
     }
     return value;
 }
 
-require.config({ paths: { 'vs': 'static/monaco-editor/min/vs', 'monaco-vim': 'static/monaco-vim/dist/monaco-vim' } });
+// Monaco's editor worker is created from the bundled REPL files (see repl.js), like the REPL workers
+window.MonacoEnvironment = {
+    getWorker: function () {
+        return replAssets.then(function (assets) { return new Worker(assets.editorWorker); });
+    },
+};
 
-require(['vs/editor/editor.main'], function () {
-    // Monaco is already globally available as window.monaco after loading
-    
+// monaco (and initVimMode, Terminal, FitAddon) come from vendor.js
+(function () {
     monaco.languages.register({ id: 'Elm' });
 
     monaco.languages.setMonarchTokensProvider('Elm', window.elm_monarch);
@@ -312,11 +355,10 @@ require(['vs/editor/editor.main'], function () {
         automaticLayout: true,
         scrollBeyondLastLine: false,
         theme: localStorage.getItem("darkmode-editor") === 'true' ? "dark" : "light",
-        automaticLayout: true,
     });
 
     // save with ctrl + s in editor window
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S, save);
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, save);
 
     window.theEditor = editor;
 
@@ -325,35 +367,11 @@ require(['vs/editor/editor.main'], function () {
 
     // Initialize Vim mode if enabled in localStorage
     if (localStorage.getItem("vim-mode") === 'true') {
-        require(['monaco-vim'], function (MonacoVim) {
-            try {
-                const statusBar = document.createElement('div');
-                statusBar.id = 'vim-status';
-                statusBar.style.cssText = 'position: fixed; bottom: 30px; left: 0; right: 0; padding: 5px 10px; background: #007acc; color: white; font-family: monospace; font-size: 12px; z-index: 1000;';
-                document.body.appendChild(statusBar);
-                
-                // Adjust panel-bottom to make room for Vim status bar
-                document.querySelector('.panel-bottom').style.marginBottom = '32px';
-                
-                // Trigger terminal resize to update layout
-                if (window.fit) {
-                    setTimeout(() => window.fit.fit(), 100);
-                }
-                
-                window.vimMode = MonacoVim.initVimMode(editor, statusBar);
-                window.MonacoVim = MonacoVim;
-                console.log('Vim mode initialized on startup');
-            } catch (e) {
-                console.error('Failed to initialize vim mode:', e);
-            }
-        });
-    } else {
-        // Preload the Vim mode library, so that it can be enabled later without network access
-        require(['monaco-vim'], function () {}, function (err) {
-            console.error('Failed to preload monaco-vim:', err);
-        });
+        activateVimMode();
     }
-});
+
+    editorReady.then(markSaved);
+})();
 
 // Setup Vim mode toggle function
 function setupVimModeToggle() {
@@ -371,42 +389,37 @@ function setupVimModeToggle() {
 }
 
 function activateVimMode() {
-    require(['monaco-vim'], function (MonacoVim) {
-        try {
-            if (!document.getElementById('vim-status')) {
-                const statusBar = document.createElement('div');
-                statusBar.id = 'vim-status';
-                statusBar.style.cssText = 'position: fixed; bottom: 30px; left: 0; right: 0; padding: 5px 10px; background: #007acc; color: white; font-family: monospace; font-size: 12px; z-index: 1000;';
-                document.body.appendChild(statusBar);
-            }
-            // Adjust panel-bottom to make room for Vim status bar
-            document.querySelector('.panel-bottom').style.marginBottom = '32px';
-            
-            // Trigger terminal resize to update layout
-            if (window.fit) {
-                setTimeout(() => window.fit.fit(), 100);
-            }
-            
-            window.vimMode = MonacoVim.initVimMode(window.theEditor, document.getElementById('vim-status'));
-            window.MonacoVim = MonacoVim;
-            localStorage.setItem("vim-mode", true);
-            console.log('Vim mode enabled successfully', MonacoVim);
-        } catch (e) {
-            console.error('Failed to enable vim mode:', e);
-            alert('Vim mode activation failed: ' + e.message);
-            document.getElementById("vim-mode").checked = false;
+    try {
+        if (!document.getElementById('vim-status')) {
+            const statusBar = document.createElement('div');
+            statusBar.id = 'vim-status';
+            document.body.appendChild(statusBar);
         }
-    }, function(err) {
-        console.error('Failed to load monaco-vim:', err);
-        alert('Failed to load Vim mode library');
+        // Adjust panel-bottom to make room for Vim status bar
+        document.querySelector('.panel-bottom').style.marginBottom = '32px';
+
+        // Trigger terminal resize to update layout
+        if (window.fit) {
+            setTimeout(() => window.fit.fit(), 100);
+        }
+
+        window.vimMode = initVimMode(window.theEditor, document.getElementById('vim-status'));
+        localStorage.setItem("vim-mode", true);
+    } catch (e) {
+        console.error('Failed to enable vim mode:', e);
+        alert('Vim mode activation failed: ' + e.message);
         document.getElementById("vim-mode").checked = false;
-    });
+    }
 }
 
 function deactivateVimMode() {
     try {
         if (window.vimMode) {
+            // disposing focuses the editor, but the focus should stay where it is (e.g. in the terminal)
+            const focused = document.activeElement;
             window.vimMode.dispose();
+            window.vimMode = null;
+            if (focused && focused !== document.activeElement) focused.focus();
         }
         const statusBar = document.getElementById('vim-status');
         if (statusBar) statusBar.remove();
@@ -420,7 +433,6 @@ function deactivateVimMode() {
         }
         
         localStorage.setItem("vim-mode", false);
-        console.log('Vim mode disabled');
     } catch (e) {
         console.error('Failed to disable vim mode:', e);
     }
@@ -428,7 +440,7 @@ function deactivateVimMode() {
 
 // TERMINAL
 
-terminaLightTheme = {
+const terminalLightTheme = {
     "foreground": "#383A42",
     "background": "#FAFAFA",
     "cursorColor": "#4F525D",
@@ -450,10 +462,10 @@ terminaLightTheme = {
     "brightCyan": "#56B5C1",
     "brightWhite": "#FFFFFF",
     "cursor": "#4F525D"
-}
+};
 
 let term;
-const fit = new FitAddon.FitAddon();
+const fit = new FitAddon();
 const terminalContainer = document.getElementById('terminal-container');
 
 // Make fit available globally for Vim mode
@@ -466,11 +478,11 @@ const createTerminal = () => {
         cursorBlink: false,
         convertEol: true,
     });
-    term.options.theme = localStorage.getItem("darkmode-terminal") === 'true' ? {} : terminaLightTheme;
+    term.options.theme = localStorage.getItem("darkmode-terminal") === 'true' ? {} : terminalLightTheme;
 
     term.open(terminalContainer);
 
-    //  ctrl + c for copy when selecting data in terminal, default otherwise. ctrl + v for paste
+    // Ctrl+C copies the selection (otherwise it is sent to the REPL), Ctrl+V pastes like Cmd+V
     term.attachCustomKeyEventHandler((arg) => {
         if (arg.ctrlKey && arg.code === "KeyC" && arg.type === "keydown") {
             const selection = term.getSelection();
@@ -480,14 +492,11 @@ const createTerminal = () => {
                 return false;
             }
         }
-        if (arg.ctrlKey && arg.code === "KeyV" && arg.type === "keydown") {
-            arg.preventDefault();
-            arg.stopPropagation();
-            navigator.clipboard.readText()
-                .then(text => window.replTerminal.type(text))
-                .catch(() => {});
+        if ((arg.ctrlKey || arg.metaKey) && arg.code === "KeyV" && arg.type === "keydown") {
+            // not handled by xterm: Ctrl/Cmd+V is pasted by the browser (xterm passes the text to onData),
+            // Ctrl/Cmd+Shift+V reaches the keydown listener of the window (Vim mode)
             return false;
-        };
+        }
         return true;
     });
 
@@ -498,7 +507,7 @@ const createTerminal = () => {
     window.replTerminal = new ReplTerminal(
         term,
         () => window.theEditor ? window.theEditor.getValue() : '',
-        notify
+        showReplStopped
     );
 }
 
@@ -508,17 +517,18 @@ if (localStorage.getItem("darkmode-terminal") === null) {
 
 createTerminal();
 
-new ResizeObserver(function () { fit.fit(); }).observe(document.getElementsByClassName("panel-top")[0])
+// resize the terminal whenever its panel changes (window size, splitter, Vim status bar)
+new ResizeObserver(function () { fit.fit(); }).observe(terminalContainer);
 
 // the REPL was stopped (:exit) or failed
-function notify() {
+function showReplStopped() {
     terminalContainer.style.opacity = 0.5;
-    document.getElementById('connection-error').style.display = 'block';
+    document.getElementById('repl-stopped').style.display = 'block';
 }
 
 // start a fresh REPL with the current editor code
-function reconnect() {
-    document.getElementById('connection-error').style.display = 'none';
+function restartRepl() {
+    document.getElementById('repl-stopped').style.display = 'none';
     terminalContainer.style.opacity = 1;
     term.focus();
     window.replTerminal.restart("import Main exposing (..)\n");

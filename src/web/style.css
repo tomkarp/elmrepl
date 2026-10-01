@@ -77,7 +77,7 @@ body {
 .panel-container-vertical {
   display: flex;
   flex-direction: column;
-  height:  calc(100% - 30px);;
+  height: calc(100% - 30px);
   overflow: hidden;
 }
 
@@ -90,20 +90,22 @@ body {
 
 .panel-bottom {
   flex: 1 1 auto;
+  /* without this, the panel never gets smaller than the terminal (the terminal is resized to fit the panel) */
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .splitter-horizontal {
   flex: 0 0 auto;
   height: 1%;
-  background: url(static/jquery-resizable-dom/assets/hsizegrip.png) center center no-repeat #535353;
+  /* grip: three thin lines */
+  background: repeating-linear-gradient(#353535 0 1px, transparent 1px 3px) center / 33px 7px no-repeat black;
   cursor: row-resize;
-  background-color: black;
+  touch-action: none;
 }
 
 #terminal-container {
-  bottom: 0;
-  left: 0;
-  right: 0;
   overflow: hidden;
   height: 100%;
   width: 100%;
@@ -199,4 +201,47 @@ body {
 
 .settings-download:hover {
   background: #1a8ad4;
+}
+
+#repl-stopped {
+  display: none;
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  padding: 12px 16px;
+  text-align: center;
+  border: 1px solid #ff6666;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+#repl-stopped span {
+  color: #ffecec;
+  margin-right: 12px;
+  font-weight: 600;
+}
+
+#repl-stopped button {
+  padding: 6px 16px;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#vim-status {
+  position: fixed;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  padding: 5px 10px;
+  background: #007acc;
+  color: white;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 1000;
 }

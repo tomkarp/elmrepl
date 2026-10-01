@@ -4,7 +4,7 @@
 // 1. the Elm REPL web worker (Elm compiler ported to Elm, https://github.com/pithub/elm-repl-worker)
 // 2. the preinstalled Elm packages (ELM_HOME) and the precompiled project as virtual file systems
 // 3. the elm-format web worker (from Guida, https://github.com/guida-lang/compiler)
-// 4. the web page and its third party libraries
+// 4. the web page and its third party libraries (bundled into vendor.js and vendor.css)
 //
 // Elm packages and the compiler port are fetched from GitHub with git, so the build does not
 // depend on package.elm-lang.org. Everything is cached in ./build.
@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const crypto = require('crypto');
 const esbuild = require('esbuild');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -27,7 +28,7 @@ const NODE_MODULES = path.join(ROOT, 'node_modules');
 const REPL_WORKER_REPO = 'https://github.com/pithub/elm-repl-worker.git';
 const REPL_WORKER_COMMIT = 'ffbc395bd057ba42dd12583f0cdd2a3ffd8f4b3a';
 
-// packages available in the REPL (same as the former docker image: elm init + elm/random, elm/json, elm/svg)
+// packages available in the REPL (elm init + elm/random, elm/json, elm/svg)
 const PROJECT_ELM_JSON = {
     'type': 'application',
     'source-directories': ['src'],
@@ -332,6 +333,57 @@ async function buildFormatWorker() {
     });
 }
 
+// Only Elm is edited, so Monaco is bundled without its language definitions and the language
+// services for TypeScript, CSS, HTML and JSON (imported by editor.main.js).
+const vendorPlugin = {
+    name: 'vendor',
+    setup(build) {
+        build.onResolve({ filter: /^\.\.\/(languages|\.\.\/external)\// }, (args) =>
+            path.basename(args.importer) === 'editor.main.js' ? { path: args.path, namespace: 'empty' } : undefined);
+        build.onLoad({ filter: /.*/, namespace: 'empty' }, () => ({ contents: '' }));
+
+        // the ES module of monaco-vim (the "browser" export is a UMD build with parts of an old Monaco),
+        // which imports Monaco files that are not listed in the exports of monaco-editor
+        build.onResolve({ filter: /^monaco-vim$/ }, () => ({ path: path.join(NODE_MODULES, 'monaco-vim', 'dist', 'index.mjs') }));
+        build.onResolve({ filter: /^monaco-editor\/esm\// }, (args) => ({ path: path.join(NODE_MODULES, args.path.replace(/(\.js)?$/, '.js')) }));
+    },
+};
+
+const VENDOR_LICENSES = ['monaco-editor', 'monaco-vim', '@xterm/xterm', '@xterm/addon-fit']
+    .map((name) => {
+        const pkg = JSON.parse(fs.readFileSync(path.join(NODE_MODULES, name, 'package.json'), 'utf8'));
+        return name + ' ' + pkg.version + ' (' + pkg.license + ')';
+    })
+    .join(', ');
+
+async function buildVendor() {
+    log('bundling the third party libraries');
+    const options = {
+        bundle: true,
+        format: 'iife',
+        platform: 'browser',
+        minify: true,
+        logLevel: 'warning',
+    };
+    await esbuild.build({
+        ...options,
+        entryPoints: [path.join(ROOT, 'src', 'vendor.js')],
+        outfile: path.join(DIST, 'vendor.js'),
+        // the font is inlined, so it also loads when the page is opened from the file system
+        loader: { '.ttf': 'dataurl' },
+        banner: { js: '/*! ' + VENDOR_LICENSES + ' */' },
+        legalComments: 'eof',
+        plugins: [vendorPlugin],
+    });
+    // Monaco's editor worker, created from a blob URL like the REPL workers (see repl.js)
+    await esbuild.build({
+        ...options,
+        entryPoints: [path.join(NODE_MODULES, 'monaco-editor', 'esm', 'vs', 'editor', 'editor.worker.js')],
+        outfile: path.join(DIST, 'repl', 'editor-worker.js'),
+        legalComments: 'none',
+    });
+}
+
 // The page loads the REPL files with a script tag instead of fetch, so the site also works
 // when index.html is opened directly from the file system (file://), where fetch is blocked.
 function bundleAssets() {
@@ -340,6 +392,7 @@ function bundleAssets() {
     const files = {
         worker: ['repl-worker.js', 'utf8'],
         formatWorker: ['format-worker.js', 'utf8'],
+        editorWorker: ['editor-worker.js', 'utf8'],
         elmHome: ['elm-home.dat', 'base64'],
         project: ['project.dat', 'base64'],
     };
@@ -354,19 +407,25 @@ function bundleAssets() {
 function copyWebFiles() {
     log('copying web files');
     copyDir(path.join(ROOT, 'src', 'web'), DIST);
-    const vendor = {
-        'monaco-editor/min': 'monaco-editor/min',
-        'monaco-vim/dist': 'monaco-vim/dist',
-        'xterm/lib': 'xterm',
-        'xterm/css': 'xterm/css',
-        'xterm-addon-fit/lib': 'xterm-addon-fit',
-        'jquery/dist': 'jquery',
-        'jquery-resizable-dom/dist': 'jquery-resizable-dom',
-        'jquery-resizable-dom/assets': 'jquery-resizable-dom/assets',
-    };
-    for (const [from, to] of Object.entries(vendor)) {
-        copyDir(path.join(NODE_MODULES, from), path.join(DIST, 'static', to));
+}
+
+// sw.js: the service worker with the list of all files and a hash of their contents as version
+function buildServiceWorker() {
+    log('generating the service worker');
+    const files = [];
+    walk(DIST, (p) => {
+        if (fs.statSync(p).isFile()) files.push(path.relative(DIST, p).split(path.sep).join('/'));
+    });
+    files.sort();
+    const hash = crypto.createHash('sha256');
+    for (const file of files) {
+        hash.update(file + '\0').update(fs.readFileSync(path.join(DIST, file)));
     }
+    const version = hash.digest('hex').slice(0, 12);
+    const code = 'const VERSION = ' + JSON.stringify(version) + ';\n'
+        + 'const FILES = ' + JSON.stringify(['./', ...files]) + ';\n\n'
+        + fs.readFileSync(path.join(ROOT, 'src', 'service-worker.js'), 'utf8');
+    writeFile(path.join(DIST, 'sw.js'), code);
 }
 
 async function main() {
@@ -381,8 +440,10 @@ async function main() {
     buildFileSystems();
     await buildReplWorker(replWorkerDir);
     await buildFormatWorker();
+    await buildVendor();
     bundleAssets();
     copyWebFiles();
+    buildServiceWorker();
     log('done, the static site is in ' + path.relative(process.cwd(), DIST) + '/');
 }
 

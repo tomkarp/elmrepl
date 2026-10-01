@@ -33,6 +33,7 @@ const replAssets = (function () {
         return {
             worker: scriptUrl(data.worker),
             formatWorker: scriptUrl(data.formatWorker),
+            editorWorker: scriptUrl(data.editorWorker),
             elmHome: data.elmHome,      // base64
             project: data.project,      // base64
         };
@@ -185,16 +186,8 @@ class ReplTerminal {
         this.output('Loading the Elm compiler ...');
         return replAssets.then((assets) => {
             this.assets = assets;
-            return this.startWorker();
-        }).then((banner) => {
-            if (!banner) return;
             // the loading message is the only output so far: clear the screen and the scrollback
-            this.output('\x1b[H\x1b[2J\x1b[3J');
-            this.writeMessages(banner.messages);
-            this.showPrompt(PROMPT, '');
-            if (initialInput) {
-                this.type(initialInput);
-            }
+            return this.startWorker(initialInput, '\x1b[H\x1b[2J\x1b[3J');
         }).catch((error) => this.fail(error));
     }
 
@@ -206,19 +199,21 @@ class ReplTerminal {
         this.completed = [];
         this.writtenCode = null;
         this.output('\r\n');
-        this.startWorker().then((banner) => {
+        return this.startWorker(initialInput, '').catch((error) => this.fail(error));
+    }
+
+    // `clear` is written before the welcome message
+    startWorker(initialInput, clear) {
+        this.repl = new ReplWorker(this.assets, (message) => this.fail(message));
+        return this.repl.ready.then((banner) => {
             if (!banner) return;
+            this.output(clear);
             this.writeMessages(banner.messages);
             this.showPrompt(PROMPT, '');
             if (initialInput) {
                 this.type(initialInput);
             }
-        }).catch((error) => this.fail(error));
-    }
-
-    startWorker() {
-        this.repl = new ReplWorker(this.assets, (message) => this.fail(message));
-        return this.repl.ready;
+        });
     }
 
     fail(error) {

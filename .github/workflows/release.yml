@@ -30,6 +30,15 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # compiler port and Elm packages fetched from GitHub (versions are pinned in scripts/build.js)
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/cache
+            build/elm-home
+          key: elm-build-${{ hashFiles('scripts/build.js') }}
+
       - run: npm run build
 
       - name: Upload GitHub Pages artifact
