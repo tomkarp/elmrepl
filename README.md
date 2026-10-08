@@ -86,8 +86,26 @@ https://elmrepl.de?code=%0Asum%20n%20%3D%0A%20%20%20%20if%20n%20%3D%3D%201%20the
 
 ## Differences to `elm repl`
 
-* The compiler port is based on Elm 0.19.1, so the REPL shows version 0.19.1.
-* Suggestions in "These names seem close though" may be listed in a different order.
+The results of the REPL are the same as with the official `elm repl`. All examples of the Elm chapters of [inf-schule.de](https://inf-schule.de/deklarativ/fp_elm) give the same output, apart from details in error messages:
+
+* The compiler port is based on Elm 0.19.1, so the REPL shows version 0.19.1 (the previous version of elmrepl.de used Elm 0.19.2, which differs only in a few error messages).
+* The names suggested in "These names seem close though" (and similar lists like "Maybe you want one of the following?") are often different, because the port measures the similarity of names in a slightly different way.
+* If `Main.elm` has several errors, often only some of them are reported, e.g. only the first unknown name in a list. The others are reported after fixing these.
+* A few error messages are worded like in Elm 0.19.2 (fixed typos, the order of the two locations in "NAME CLASH"), and if a module has several type errors, they may be reported in a different order.
+
+## Limits
+
+* The compiler runs in the browser, where the call stack is limited. Very large or deeply nested code exceeds it, for example (measured in Chrome and Safari, the limits depend on the browser):
+  * lists written in the code with more than about 1400 elements,
+  * pipelines with more than about 120 `|>` steps,
+  * chains of more than about 250 operators like `+`, `++` or `::`,
+  * more than about 140 nested parentheses, 170 `else if` or 580 `case` branches,
+  * more than about 700 top-level definitions in `Main.elm`.
+
+  The REPL then shows "The code is too large or too deeply nested for the Elm compiler in the browser" and restarts with the previous inputs. The official compiler has no such limits.
+* The compiled code runs in a Web Worker, which has a smaller stack than node used by `elm repl`. Recursive functions that are not tail-recursive can only call themselves about 4500 times in Chrome and 3000 times in Safari (`elm repl`: about 7400), otherwise the REPL shows `RangeError: Maximum call stack size exceeded` like `elm repl` does for deeper recursion. Tail-recursive functions are not limited.
+* Like `elm repl`, every input compiles all definitions entered before, so inputs get slower in very long sessions (about 0.1 s per input after 300 definitions, 0.3 s after 800). `:reset` removes the definitions.
+* The format button uses the elm-format port of Guida, not elm-format itself. Its result is checked before it is used: if comments would get lost or formatting again would change the code, the code is left unchanged and a message explains why. It cannot format some valid code, e.g. code with names like `größe`. Compared to elm-format, comments at the end of a line may be moved to a line of their own, and `\u{...}` escapes and numbers like `1.50` are kept as they are.
 
 ## Project structure
 

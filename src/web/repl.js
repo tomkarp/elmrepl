@@ -204,7 +204,7 @@ class ReplTerminal {
 
     // `clear` is written before the welcome message
     startWorker(initialInput, clear) {
-        this.repl = new ReplWorker(this.assets, (message) => this.fail(message));
+        this.repl = this.newWorker();
         return this.repl.ready.then((banner) => {
             if (!banner) return;
             this.output(clear);
@@ -220,6 +220,35 @@ class ReplTerminal {
         this.state = 'stopped';
         this.output('\r\n\x1b[31mThe Elm REPL failed: ' + error + '\x1b[0m\r\n');
         this.onStopped();
+    }
+
+    newWorker() {
+        const repl = new ReplWorker(this.assets, (message) => {
+            if (repl === this.repl) this.crashed(message);
+        });
+        repl.ready.then((banner) => { repl.started = banner !== null; });
+        return repl;
+    }
+
+    // The worker died while handling an input, e.g. because the compiler ran out of stack space
+    // for very deeply nested code. Like after Ctrl+C, the REPL is restarted with the previous inputs.
+    crashed(error) {
+        if (this.state !== 'busy' || !this.repl.started) {
+            this.fail(error);
+            return;
+        }
+        let message = '\x1b[31m' + error + '\x1b[0m\r\n';
+        if (/call stack|too much recursion/i.test(error)) {
+            // the compiler runs in the browser with a limited stack (see "Limits" in README.md)
+            message += '\x1b[33mThe code is too large or too deeply nested for the Elm compiler in the browser,\r\n'
+                + 'e.g. a list with more than about 1000 elements or a very long |> pipeline.\x1b[0m\r\n';
+        }
+        message += this.replaying
+            ? '\x1b[33mThe previous inputs could not be restored. Restarting the REPL without them\r\n'
+                + '(after changing the code, enter "import Main exposing (..)" again) ...\x1b[0m\r\n'
+            : '\x1b[33mThe Elm compiler crashed. Restarting the REPL ...\x1b[0m\r\n';
+        this.output(message);
+        this.restartWorker();
     }
 
     // Text typed or pasted into the terminal
@@ -472,8 +501,13 @@ class ReplTerminal {
     }
 
     // Ctrl+C while evaluating: stop the worker, start a new one and replay all completed inputs
-    // (if the replay itself is interrupted, start without the previous inputs)
-    async interrupt() {
+    interrupt() {
+        this.output('^C\r\n\x1b[33mInterrupted. Restarting the REPL ...\x1b[0m\r\n');
+        this.restartWorker();
+    }
+
+    // (if the replay itself is interrupted or crashes, start without the previous inputs)
+    async restartWorker() {
         const replay = this.replaying ? [] : this.completed;
         this.replaying = false;
         this.completed = [];
@@ -482,9 +516,8 @@ class ReplTerminal {
         this.group = [];
         this.writtenCode = null;
         this.state = 'busy';
-        this.output('^C\r\n\x1b[33mInterrupted. Restarting the REPL ...\x1b[0m\r\n');
 
-        const repl = new ReplWorker(this.assets, (message) => this.fail(message));
+        const repl = this.newWorker();
         this.repl = repl;
         if (await repl.ready === null || repl !== this.repl) return; // interrupted again
         this.syncCode();

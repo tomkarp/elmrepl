@@ -23,8 +23,9 @@ function decompress(string, encoding) {
     const byteArray = Uint8Array.from(binary, c => c.charCodeAt(0));
     const ds = new DecompressionStream(encoding);
     const writer = ds.writable.getWriter();
-    writer.write(byteArray);
-    writer.close();
+    // invalid data is reported by the readable side (below), so these rejections are expected
+    writer.write(byteArray).catch(function () {});
+    writer.close().catch(function () {});
     return new Response(ds.readable).text();
 }
 
@@ -287,6 +288,7 @@ function getEditorValue() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const compressed = urlParams.get('compressed');
+    const defaultValue = 'module Main exposing (..)\n\nmessage = "Hello World"';
     let value;
 
     if (code) {
@@ -298,14 +300,16 @@ function getEditorValue() {
             decompressing.then(function (decompressed) {
                 window.theEditor.setValue(decompressed);
             }).catch(function () {
+                window.theEditor.setValue(defaultValue);
                 alert('Compressed data is not valid');
             }).finally(resolveEditorReady);
+            value = "decompressing ...";
         } else {
+            value = defaultValue;
             setTimeout(resolveEditorReady, 0);
         }
-        value = "decompressing ...";
     } else {
-        value = 'module Main exposing (..)\n\nmessage = "Hello World"';
+        value = defaultValue;
         setTimeout(resolveEditorReady, 0);
     }
     return value;

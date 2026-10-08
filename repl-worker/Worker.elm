@@ -6,6 +6,8 @@ with two additional ports used by the online Elm REPL:
   - `writeFilePort` writes a file (e.g. src/Main.elm) into the virtual file system
   - `cancelInputPort` discards an incomplete multi-line input (Ctrl+C at the prompt)
 
+and without the memory leak of long sessions (see `resetCompilerState`).
+
 -}
 
 import Builder.Build as Build
@@ -243,10 +245,27 @@ handleClientCall { userInput } =
         \workerState ->
             IO.bind collectMessages <|
                 \messages ->
-                    IO.return
-                        { workerState = workerState
-                        , messages = messages
-                        }
+                    IO.bindSequence
+                        [ resetCompilerState ]
+                        (IO.return
+                            { workerState = workerState
+                            , messages = messages
+                            }
+                        )
+
+
+{-| The compiler port simulates the MVars of the Haskell compiler with maps in the
+global state, and their entries are never removed. Each input creates new MVars
+(e.g. with the interfaces of all modules), so the memory grows by several MB per
+input until the browser tab crashes. Nothing refers to them after an input has been
+handled (details, build results and generated code are recreated for every input),
+so the states of Details, Build and Generate are reset.
+-}
+resetCompilerState : Msg
+resetCompilerState =
+    IO.modify <|
+        \(Global.State config dir _ _ _ terminal repl local) ->
+            Global.State config dir Details.initialState Build.initialState Generate.initialState terminal repl local
 
 
 handleClientRequestHelp : Repl.Env LocalState -> Repl.State -> Repl.Lines -> IO Api.WorkerState

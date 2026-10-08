@@ -106,6 +106,15 @@
                 and open <code>index.html</code> in the browser. The folder can also be put on any web server.
             </p>
             <a class="offline-link settings-download" href="https://github.com/tomkarp/elmrepl/releases/download/main-latest/elmrepl.zip">Download elmrepl.zip</a>
+
+            <h2>Differences to the official Elm compiler</h2>
+            <p class="settings-text">
+                The REPL gives the same results as <code>elm repl</code>, but error messages can differ in
+                details. Very large or deeply nested code (e.g. a list with more than about 1000 elements
+                written in the code) exceeds the limits of the compiler in the browser. Formatting uses a
+                port of elm-format that does not support all code.
+                <a class="settings-link" href="https://github.com/tomkarp/elmrepl#differences-to-elm-repl" target="_blank">Details</a>
+            </p>
         </div>
 
     </div>
