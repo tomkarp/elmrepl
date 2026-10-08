@@ -322,6 +322,11 @@ window.MonacoEnvironment = {
     },
 };
 
+// before the editor is created, so it starts in dark mode on the first visit
+if (localStorage.getItem("darkmode-editor") === null) {
+    localStorage.setItem("darkmode-editor", true);
+}
+
 // monaco (and initVimMode, Terminal, FitAddon) come from vendor.js
 (function () {
     monaco.languages.register({ id: 'Elm' });
@@ -566,9 +571,6 @@ window.onclick = function (event) {
     }
 }
 
-if (localStorage.getItem("darkmode-editor") === null) {
-    localStorage.setItem("darkmode-editor", true);
-}
 document.querySelector('#darkmode-editor').checked = (localStorage.getItem('darkmode-editor') === 'true')
 document.getElementById("darkmode-editor").addEventListener("change", function () {
     applyEditorDarkMode(this.checked);
